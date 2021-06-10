@@ -180,13 +180,6 @@ def updateBoard(board,pocket_index,mode):
     board[pocket_index] -= Nstones
     return playAgain
 
-
-
-
-
-
-
-
 """
 display image when the opponent loses
 parameters: none
