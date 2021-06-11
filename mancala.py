@@ -1,8 +1,37 @@
 import math
 import copy
+import pickle
 
 #player value
 opponent, AI =  False, True
+
+def printMancala(mancala_board):
+    """
+    parameters: the current mancala board you want to print
+    it prints the mancala in a good way to see how the current state of the mancala is
+    returns: None
+    """
+     
+    #visulaization of mancala board 
+    print('  Opp   pckt12  pckt11  pckt10  pckt9   pckt8   pckt7 ')
+    print('------- ------- ------- ------- ------- ------- ------- -------')
+    print('|     | |  %2d | |  %2d | |  %2d | |  %2d | |  %2d | |  %2d | |     |'%(mancala_board[12],mancala_board[11],mancala_board[10],mancala_board[9],mancala_board[8],mancala_board[7]))
+    print('| %2d  | ------- ------- ------- ------- ------- ------- | %2d  |'%(mancala_board[13],mancala_board[6]))
+    print('|     | ------- ------- ------- ------- ------- ------- |     |')
+    print('|     | |  %2d | |  %2d | |  %2d | |  %2d | |  %2d | |  %2d | |     |'%(mancala_board[0],mancala_board[1],mancala_board[2],mancala_board[3],mancala_board[4],mancala_board[5]))
+    print('------- ------- ------- ------- ------- ------- ------- -------')
+    print('         pckt0    pckt1   pckt2  pckt3   pckt4   pckt5     AI  ')
+    print()
+
+
+def evaluate(board):
+    """
+    parameters: mancala current board
+    it returns the difference of the number of stones in the AI's mancala and opponent's mancala, +ve means AI is the winner , -ve means AI is the loser
+    return: the score (AI's mancala number of stones - opponent's mancala number of stones)
+    """
+    return board[6]-board[13]
+
 
 """
 checks whether the lastIndex due to the player move is its mancala index
@@ -329,3 +358,145 @@ def oppMove(board,mode,endOfGame):
         else:
             return
             
+def playAgain(board,pocket_index):
+    """
+    parameters: mancala board, the played pocket index
+    this function checks if the last stone is placed in the player's mancala so he should play again
+    retrun: True if he should play again, false if not
+    """
+    if(pocket_index >= 7):
+        #opponent pockets
+        if(13-pocket_index == board[pocket_index]):
+            return True
+        else: return False
+    elif(pocket_index < 6):
+        #AI pockets
+        if(6-pocket_index == board[pocket_index]):
+            return True
+        else: return False
+    else: 
+        print("error from playAgain !!!!!!!!")
+        return
+
+def minimax(board,mode,depth,depthMax,player,alpha,beta):
+    """
+    paramters: mancala board, mode of the game, depth of the tree, player: true if AI false if opponent, alpha and beta parameters
+    this is the main function of the whole game, it returns the best score that AI can acheive by making a certain move, it searches the tree to a certain depth
+    determined based on the level of the game, it uses alpha beta pruning to cut off the unnecessary branches to make the search faster
+    return: best score
+    """
+    #check stop condition for AI
+    _,StopPlayAI = stopPlay(board,AI)
+    #check stop condition for  opponent
+    _,StopPlayOpp = stopPlay(board,opponent)
+
+    depthLimit = False
+    if(depth>=depthMax): depthLimit = True
+
+    #check the result of game
+    if(StopPlayAI or StopPlayOpp or depthLimit):
+        # return evaluateWrtDepth(board,player,depth)  #hard level evaluation function
+        return evaluateWrtDepth(board,player)
+    else:
+        #AI turn
+        if(player == AI):
+            #saving our board before any moves
+            prevBoard = copy.deepcopy(board)
+            bestScore = -1000
+            #loop over AI possible moves
+            for i in range(6):
+                if(not(isPocketEmpty(board,i))):
+                    #move
+                    playAgain = updateBoard(board,i,mode)
+                    if(playAgain):
+                        score = minimax(board,mode,depth+1,depthMax,AI,alpha,beta)
+                        #undo
+                        board=copy.deepcopy(prevBoard) 
+                        #evaluate best move
+                        if (score > bestScore):
+                            bestScore = score
+                            #alpha update
+                            if(alpha < bestScore):
+                                alpha = bestScore
+                            # Alpha Beta Pruning 
+                            if beta <= alpha: 
+                                break
+                    else:
+                        score = minimax(board,mode,depth+1,depthMax,opponent,alpha,beta)
+                        #undo
+                        board=copy.deepcopy(prevBoard)
+                        #evaluate best move
+                        if (score > bestScore):
+                            bestScore = score
+                            #alpha update
+                            if(alpha < bestScore):
+                                alpha = bestScore
+                            # Alpha Beta Pruning 
+                            if beta <= alpha: 
+                                break
+            return bestScore
+
+        #opponent turn
+        elif(player == opponent):
+            #saving our board before any moves
+            prevBoard = copy.deepcopy(board)
+            bestScore = 1000
+            #loop over opponent possible moves
+            for i in range(7,13):
+                if(not(isPocketEmpty(board,i))):
+                    #move
+                    playAgain = updateBoard(board,i,mode)
+                    if(playAgain):
+                        score = minimax(board,mode,depth+1,depthMax,opponent,alpha,beta)
+                        #undo
+                        board=copy.deepcopy(prevBoard)
+                        #evaluate best move
+                        if (score < bestScore):
+                            bestScore = score
+                            #beta update
+                            if(beta > bestScore):
+                                beta = bestScore
+                            # Alpha Beta Pruning 
+                            if beta <= alpha: 
+                                break
+                    else:
+                        score = minimax(board,mode,depth+1,depthMax,AI,alpha,beta)
+                        #undo
+                        board=copy.deepcopy(prevBoard)
+                        #evaluate best move
+                        if (score < bestScore):
+                            bestScore = score
+                            #beta update
+                            if(beta > bestScore):
+                                beta = bestScore
+                            # Alpha Beta Pruning 
+                            if beta <= alpha: 
+                                break
+            return bestScore
+        else:
+            print("error in minimax !!!!!")
+            return
+
+####################################################### BONUS 1 ############################################################
+
+def saveGame(fileName,board,player,mode,level):
+    """
+    parameters: the file name you want to save the game in, the board you want to save,the last played player, the mode of the game and the level
+    it takes the paramters and save them in a list game in a text file
+    returns: None
+    """
+    game= [board,player,mode,level]
+    fileName = 'games/'+ fileName +'.txt'
+    with open(fileName, 'wb') as f:
+        pickle.dump(game,f)
+
+def loadGame(fileName):
+    """
+    parameters: the file name you want to load the game from
+    it opens the file and gives the saved list again to continue playing from the stopped position
+    returns: gamelist 
+    """
+    fileName = 'games/'+ fileName +'.txt'
+    buffer = open (fileName, "rb")
+    game = pickle.load(buffer)
+    return game
